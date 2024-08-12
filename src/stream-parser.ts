@@ -15,7 +15,7 @@ export interface StreamParser<State> {
   /// A name for this language.
   name?: string
   /// Produce a start state for the parser.
-  startState?(indentUnit: number): State
+  startState?(indentUnit: number, editorState?: EditorState): State
   /// Read one token, advancing the stream past it, and returning a
   /// string indicating the token's style tag—either the name of one
   /// of the tags in
@@ -117,7 +117,7 @@ export class StreamLanguage<State> extends Language {
     }
     let start = findState(this, tree, 0, at.from, from ?? pos), statePos, state
     if (start) { state = start.state; statePos = start.pos + 1 }
-    else { state = this.streamParser.startState(cx.unit) ; statePos = 0 }
+    else { state = this.streamParser.startState(cx.unit, cx.state) ; statePos = 0 }
     if (pos - statePos > C.MaxIndentScanDist) return null
     while (statePos < pos) {
       let line = cx.state.doc.lineAt(statePos), end = Math.min(pos, line.to)
@@ -175,7 +175,7 @@ function findStartInFragments<State>(lang: StreamLanguage<State>, fragments: rea
     if (found && (tree = cutTree(lang, f.tree, startPos + f.offset, found.pos + f.offset, false)))
       return {state: found.state, tree}
   }
-  return {state: lang.streamParser.startState(editorState ? getIndentUnit(editorState) : 4), tree: Tree.empty}
+  return {state: lang.streamParser.startState(editorState ? getIndentUnit(editorState) : 4, editorState), tree: Tree.empty}
 }
 
 const enum C {
@@ -211,7 +211,7 @@ class Parse<State> implements PartialParse {
       this.chunkPos.push(tree.positions[i])
     }
     if (context && this.parsedPos < context.viewport.from - C.MaxDistanceBeforeViewport) {
-      this.state = this.lang.streamParser.startState(getIndentUnit(context.state))
+      this.state = this.lang.streamParser.startState(getIndentUnit(context.state), context.state)
       context.skipUntilInView(this.parsedPos, context.viewport.from)
       this.parsedPos = context.viewport.from
     }
